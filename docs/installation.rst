@@ -169,3 +169,49 @@ By default ``django-rest-auth`` uses Django's Token-based authentication. If you
 .. code-block:: python
 
     REST_USE_JWT = True
+
+
+Customizable Error Messages (optional)
+--------------------------------------
+
+Override the following properties on the ``Serializer`` in order to customize
+the 400 error message.  Do so by subclassing the ``Serializer``/``View``
+
+**LoginSerializer**
+
+.. code-block:: python
+
+    LoginSerializer.EMAIL_PASSWORD_REQUIRED
+    # default: 'Must include "email" and "password".'
+
+    LoginSerializer.USERNAME_PASSWORD_REQUIRED
+    # default: 'Must include "username" and "password".'
+
+    LoginSerializer.USERNAME_PASSWORD_DONT_MATCH
+    # default: 'Unable to log in with provided credentials.'
+
+    LoginSerializer.USERNAME_EMAIL_PASSWORD_REQUIRED
+    # default: 'Must include either "username" or "email" and "password".'
+
+    LoginSerializer.ACCOUNT_DISABLED
+    # default: 'User account is disabled.'
+
+    LoginSerializer.EMAIL_NOT_VERIFIED
+    # default: 'E-mail is not verified.'
+
+**PasswordResetConfirmSerializer**
+
+.. code-block:: python
+
+    PasswordResetConfirmSerializer.INVALID_UID
+    # default: {'uid': ['Invalid value']}
+
+    PasswordResetConfirmSerializer.INVALID_TOKEN
+    # default: {'token': ['Invalid value']}
+
+**PasswordChangeSerializer**
+
+.. code-block:: python
+
+    PasswordChangeSerializer.INVALID_PASSWORD
+    # default: _('Invalid password')
