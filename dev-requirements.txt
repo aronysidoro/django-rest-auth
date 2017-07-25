@@ -1,3 +1,4 @@
 --editable .
 responses>=0.5.0
+django-allauth>=0.25.0
 djangorestframework-jwt
