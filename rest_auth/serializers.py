@@ -21,13 +21,34 @@ class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField(required=False, allow_blank=True)
     password = serializers.CharField(style={'input_type': 'password'})
 
+    # overridable fields for custom error messages
+    EMAIL_PASSWORD_REQUIRED = _('Must include "email" and "password".')
+    USERNAME_PASSWORD_REQUIRED = _('Must include "username" and "password".')
+    USERNAME_PASSWORD_DONT_MATCH = _('Unable to log in with provided credentials.')
+    USERNAME_EMAIL_PASSWORD_REQUIRED = \
+        _('Must include either "username" or "email" and "password".')
+    ACCOUNT_DISABLED = _('User account is disabled.')
+    EMAIL_NOT_VERIFIED = _('E-mail is not verified.')
+
+    def __init__(self, *args, **kwargs):
+        super(LoginSerializer, self).__init__(*args, **kwargs)
+
+        self.error_messages.update({
+            'EMAIL_PASSWORD_REQUIRED': self.EMAIL_PASSWORD_REQUIRED,
+            'USERNAME_PASSWORD_REQUIRED': self.USERNAME_PASSWORD_REQUIRED,
+            'USERNAME_PASSWORD_DONT_MATCH': self.USERNAME_PASSWORD_DONT_MATCH,
+            'USERNAME_EMAIL_PASSWORD_REQUIRED': self.USERNAME_EMAIL_PASSWORD_REQUIRED,
+            'ACCOUNT_DISABLED': self.ACCOUNT_DISABLED,
+            'EMAIL_NOT_VERIFIED': self.EMAIL_NOT_VERIFIED,
+        })
+
     def _validate_email(self, email, password):
         user = None
 
         if email and password:
             user = authenticate(email=email, password=password)
         else:
-            msg = _('Must include "email" and "password".')
+            msg = self.error_messages['EMAIL_PASSWORD_REQUIRED']
             raise exceptions.ValidationError(msg)
 
         return user
@@ -38,7 +59,7 @@ class LoginSerializer(serializers.Serializer):
         if username and password:
             user = authenticate(username=username, password=password)
         else:
-            msg = _('Must include "username" and "password".')
+            msg = self.error_messages['USERNAME_PASSWORD_REQUIRED']
             raise exceptions.ValidationError(msg)
 
         return user
@@ -51,7 +72,7 @@ class LoginSerializer(serializers.Serializer):
         elif username and password:
             user = authenticate(username=username, password=password)
         else:
-            msg = _('Must include either "username" or "email" and "password".')
+            msg = self.error_messages['USERNAME_EMAIL_PASSWORD_REQUIRED']
             raise exceptions.ValidationError(msg)
 
         return user
@@ -92,10 +113,10 @@ class LoginSerializer(serializers.Serializer):
         # Did we get back an active user?
         if user:
             if not user.is_active:
-                msg = _('User account is disabled.')
+                msg = self.error_messages['ACCOUNT_DISABLED']
                 raise exceptions.ValidationError(msg)
         else:
-            msg = _('Unable to log in with provided credentials.')
+            msg = self.error_messages['USERNAME_PASSWORD_DONT_MATCH']
             raise exceptions.ValidationError(msg)
 
         # If required, is the email verified?
@@ -104,7 +125,8 @@ class LoginSerializer(serializers.Serializer):
             if app_settings.EMAIL_VERIFICATION == app_settings.EmailVerificationMethod.MANDATORY:
                 email_address = user.emailaddress_set.get(email=user.email)
                 if not email_address.verified:
-                    raise serializers.ValidationError(_('E-mail is not verified.'))
+                    msg = self.error_messages['EMAIL_NOT_VERIFIED']
+                    raise serializers.ValidationError(msg)
 
         attrs['user'] = user
         return attrs
@@ -194,6 +216,17 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
     set_password_form_class = SetPasswordForm
 
+    INVALID_UID = {'uid': ['Invalid value']}
+    INVALID_TOKEN = {'token': ['Invalid value']}
+
+    def __init__(self, *args, **kwargs):
+        super(PasswordResetConfirmSerializer, self).__init__(*args, **kwargs)
+
+        self.error_messages.update({
+            'INVALID_UID': self.INVALID_UID,
+            'INVALID_TOKEN': self.INVALID_TOKEN
+        })
+
     def custom_validation(self, attrs):
         pass
 
@@ -205,7 +238,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
             uid = force_text(uid_decoder(attrs['uid']))
             self.user = UserModel._default_manager.get(pk=uid)
         except (TypeError, ValueError, OverflowError, UserModel.DoesNotExist):
-            raise ValidationError({'uid': ['Invalid value']})
+            raise ValidationError(self.error_messages['INVALID_UID'])
 
         self.custom_validation(attrs)
         # Construct SetPasswordForm instance
@@ -215,7 +248,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         if not self.set_password_form.is_valid():
             raise serializers.ValidationError(self.set_password_form.errors)
         if not default_token_generator.check_token(self.user, attrs['token']):
-            raise ValidationError({'token': ['Invalid value']})
+            raise ValidationError(self.error_messages['INVALID_TOKEN'])
 
         return attrs
 
@@ -229,6 +262,8 @@ class PasswordChangeSerializer(serializers.Serializer):
     new_password2 = serializers.CharField(max_length=128)
 
     set_password_form_class = SetPasswordForm
+
+    INVALID_PASSWORD = _('Invalid password')
 
     def __init__(self, *args, **kwargs):
         self.old_password_field_enabled = getattr(
@@ -245,6 +280,10 @@ class PasswordChangeSerializer(serializers.Serializer):
         self.request = self.context.get('request')
         self.user = getattr(self.request, 'user', None)
 
+        self.error_messages.update({
+            'INVALID_PASSWORD': self.INVALID_PASSWORD
+        })
+
     def validate_old_password(self, value):
         invalid_password_conditions = (
             self.old_password_field_enabled,
@@ -253,7 +292,7 @@ class PasswordChangeSerializer(serializers.Serializer):
         )
 
         if all(invalid_password_conditions):
-            raise serializers.ValidationError('Invalid password')
+            raise serializers.ValidationError(self.error_messages['INVALID_PASSWORD'])
         return value
 
     def validate(self, attrs):

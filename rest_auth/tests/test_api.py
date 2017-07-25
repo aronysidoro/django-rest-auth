@@ -8,6 +8,8 @@ from django.utils.encoding import force_text
 from rest_framework import status
 from allauth.account import app_settings as account_app_settings
 from .test_base import BaseAPITestCase
+from rest_auth.views import LoginView
+from rest_auth.serializers import LoginSerializer
 
 
 @override_settings(ROOT_URLCONF="tests.urls")
@@ -493,3 +495,25 @@ class APITestCase1(TestCase, BaseAPITestCase):
 
         self.post(self.login_url, data=payload, status_code=status.HTTP_200_OK)
         self.get(self.logout_url, status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+class APITestCaseLoginCustomErrors(APITestCase1):
+
+    @override_settings(ACCOUNT_AUTHENTICATION_METHOD=account_app_settings.AuthenticationMethod.EMAIL)
+    def test_login_failed_email_password_validation(self):
+        global LoginView
+
+        class CustomLoginSerializer(LoginSerializer):
+            EMAIL_PASSWORD_REQUIRED = 'bar'
+        LoginView.serializer_class = CustomLoginSerializer
+
+        payload = {
+            "email": '',
+            "password": self.PASS
+        }
+
+        resp = self.post(self.login_url, data=payload, status_code=400)
+        self.assertEqual(resp.json['non_field_errors'][0], u'bar')
+
+        # reset to initial
+        LoginView.serializer_class = LoginSerializer
